@@ -4,9 +4,13 @@ import (
 	"bytes"
 	"fmt"
 	"log"
+	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 )
+
+const stateFile = "/var/temp/update-notifier.state"
 
 func main() {
 	packageCount, err := checkUpdates()
@@ -15,11 +19,25 @@ func main() {
 	}
 
 	if packageCount > 0 {
-		// Notify the user with the package count
-		sendNotification(fmt.Sprintf("There are %d package updates available.", packageCount))
+		shouldNotify, err := shouldSendNotification(packageCount)
+		if err != nil {
+			log.Fatalf("Failed to check notification state: %v", err)
+		}
+
+		if shouldNotify {
+			sendNotification(fmt.Sprintf("%d package(s) available", packageCount))
+
+			//Update state
+			err = updateState(packageCount)
+			if err != nil {
+				log.Fatalf("Failed to update state: %v", err)
+			}
+		}
 	} else {
-		// No updates, exit quietly
-		fmt.Println("System is up-to-date.")
+		err := clearState()
+		if err != nil {
+			log.Fatalf("Failed to clear state: %v", err)
+		}
 	}
 }
 
@@ -68,4 +86,32 @@ func sendNotification(msg string) {
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+func shouldSendNotification(currentCount int) (bool, error) {
+	data, err := os.ReadFile(stateFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return true, nil
+		}
+		return false, err
+	}
+
+	storedCount, err := strconv.Atoi(strings.TrimSpace(string(data)))
+	if err != nil {
+		return false, err
+	}
+
+	return currentCount != storedCount, nil
+}
+
+func updateState(packageCount int) error {
+	return os.WriteFile(stateFile, []byte(strconv.Itoa(packageCount)), 0644)
+}
+
+func clearState() error {
+	if err := os.Remove(stateFile); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
 }
