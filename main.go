@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-const stateFile = "/var/tmp/update-notifier.state"
+const STATE_FILE = "/var/tmp/update-notifier.state"
 
 func main() {
 	err := ensureStateFileExists()
@@ -93,8 +93,8 @@ func sendNotification(msg string) {
 }
 
 func ensureStateFileExists() error {
-	if _, err := os.Stat(stateFile); os.IsNotExist(err) {
-		file, err := os.Create(stateFile)
+	if _, err := os.Stat(STATE_FILE); os.IsNotExist(err) {
+		file, err := os.Create(STATE_FILE)
 		if err != nil {
 			return err
 		}
@@ -121,7 +121,7 @@ func shouldSendNotification(currentCount int) (bool, error) {
 		return false, nil
 	}
 
-	data, err := os.ReadFile(stateFile)
+	data, err := os.ReadFile(STATE_FILE)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return true, nil
@@ -137,11 +137,11 @@ func shouldSendNotification(currentCount int) (bool, error) {
 }
 
 func updateState(packageCount int) error {
-	return os.WriteFile(stateFile, []byte(strconv.Itoa(packageCount)), 0644)
+	return os.WriteFile(STATE_FILE, []byte(strconv.Itoa(packageCount)), 0644)
 }
 
 func clearState() error {
-	if err := os.Remove(stateFile); err != nil && !os.IsNotExist(err) {
+	if err := os.Remove(STATE_FILE); err != nil && !os.IsNotExist(err) {
 		return err
 	}
 	return nil
