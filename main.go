@@ -51,10 +51,10 @@ func checkUpdates() (int, error) {
 	cmd.Stderr = &stderr
 
 	// Run the command
-	err := cmd.Run()
+	exit := cmd.Run()
 
 	// Check for errors and handle known exit codes
-	if err != nil {
+	if exit != nil {
 		// Extract the exit code and handle updates
 		exitCode := cmd.ProcessState.ExitCode()
 
@@ -70,10 +70,9 @@ func checkUpdates() (int, error) {
 				}
 			}
 			return packageCount, nil
+		} else if exitCode == 1 {
+			return 0, fmt.Errorf("error running DNF check-upgrade: %s", exit)
 		}
-
-		// For other errors, return a detailed error message
-		return 0, fmt.Errorf("command failed with exit code %d: %s, error: %v", exitCode, stderr.String(), err)
 	}
 
 	// Exit code 0 means no updates are available
