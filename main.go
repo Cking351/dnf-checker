@@ -13,7 +13,7 @@ import (
 const stateFile = "/var/tmp/update-notifier.state"
 
 func main() {
-	err := ensureStateDirExists()
+	err := ensureStateFileExists()
 	if err != nil {
 		log.Fatalf("Failed to ensure state directory exists: %v", err)
 	}
@@ -92,20 +92,24 @@ func sendNotification(msg string) {
 	}
 }
 
-func ensureStateDirExists() error {
-	// Check if the file exists
+func ensureStateFileExists() error {
 	if _, err := os.Stat(stateFile); os.IsNotExist(err) {
-		// Create the file if it doesn't exist
-		file, createErr := os.Create(stateFile)
-		if createErr != nil {
-			return createErr
+		file, err := os.Create(stateFile)
+		if err != nil {
+			return err
 		}
-		defer func(file *os.File) {
-			err := file.Close()
-			if err != nil {
-				log.Fatal(err)
+		defer func() {
+			if closeErr := file.Close(); closeErr != nil {
+				log.Fatalf(
+					"Failed to close state file: %v",
+					closeErr)
 			}
-		}(file)
+		}()
+
+		_, err = file.WriteString("0")
+		if err != nil {
+			return err
+		}
 	} else if err != nil {
 		return err
 	}
@@ -113,7 +117,10 @@ func ensureStateDirExists() error {
 }
 
 func shouldSendNotification(currentCount int) (bool, error) {
-	// Check if stateFile exists and create if not
+	if currentCount == 0 {
+		return false, nil
+	}
+
 	data, err := os.ReadFile(stateFile)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -126,7 +133,6 @@ func shouldSendNotification(currentCount int) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-
 	return currentCount != storedCount, nil
 }
 
