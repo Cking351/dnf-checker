@@ -10,9 +10,14 @@ import (
 	"strings"
 )
 
-const stateFile = "/var/temp/update-notifier.state"
+const stateFile = "/var/tmp/update-notifier.state"
 
 func main() {
+	err := ensureStateDirExists()
+	if err != nil {
+		log.Fatalf("Failed to ensure state directory exists: %v", err)
+	}
+
 	packageCount, err := checkUpdates()
 	if err != nil {
 		log.Fatalf("Update check failed: %v", err)
@@ -87,7 +92,28 @@ func sendNotification(msg string) {
 	}
 }
 
+func ensureStateDirExists() error {
+	// Check if the file exists
+	if _, err := os.Stat(stateFile); os.IsNotExist(err) {
+		// Create the file if it doesn't exist
+		file, createErr := os.Create(stateFile)
+		if createErr != nil {
+			return createErr
+		}
+		defer func(file *os.File) {
+			err := file.Close()
+			if err != nil {
+				log.Fatal(err)
+			}
+		}(file)
+	} else if err != nil {
+		return err
+	}
+	return nil
+}
+
 func shouldSendNotification(currentCount int) (bool, error) {
+	// Check if stateFile exists and create if not
 	data, err := os.ReadFile(stateFile)
 	if err != nil {
 		if os.IsNotExist(err) {
